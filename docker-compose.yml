@@ -1,0 +1,119 @@
+version: "3.7"
+# https://docs.docker.com/compose/compose-file/compose-file-v3/
+# https://github.com/compose-spec/compose-spec/blob/master/spec.md
+
+
+services:
+
+    mariadb: # https://hub.docker.com/_/mariadb
+        build: docker/mariadb
+        restart: always
+        volumes:
+            - ./service/mariadb/database:/var/lib/mysql
+            - ./service/mariadb/init:/docker-entrypoint-initdb.d:ro
+            - ./service/mariadb/config.cnf:/etc/mysql/conf.d/config.cnf:ro
+        # ports:
+            # - "3306:3306"
+        env_file:
+            - ./docker/common.env
+            - ./service/mariadb/config.env
+        # help:
+            # 기본 데이터베이스명 및 계정 설정은 docker.env 파일에 저장한다.
+                # docker-sample.env 파일을 복사해서 수정할 것
+            # init 디렉터리에 있는 모든 .sql 파일은 컨테이너 최초 시작시 자동으로 import 된다.
+                # 컨테이너 최초 시작 여부는 ./service/mariab/database 하위의 mysql 디렉터리 존재 여부로 판단한다.
+                # https://github.com/MariaDB/mariadb-docker/blob/master/10.6/docker-entrypoint.sh
+            # 외부 접속을 허용하려면 ports 주석 해제
+                # 다른 컨테이너에서는 항상 접속할 수 있으므로 가능하다면 포트를 노출시키지 않는 것이 좋다.
+
+
+    php: # https://hub.docker.com/_/php
+        build: docker/php
+        restart: always
+        depends_on:
+            - mariadb
+        volumes:
+            - ./service/php/config.ini:/usr/local/etc/php/conf.d/config.ini:ro
+            - ./www/html:/var/www/html
+        env_file:
+            - ./docker/common.env
+        # help:
+            # https://github.com/docker-library/docs/tree/master/php
+
+
+    nginx: # https://hub.docker.com/_/nginx
+        build: docker/nginx
+        restart: always
+        depends_on:
+            - php
+        volumes:
+            - ./service/nginx/helper:/etc/nginx/helper:ro
+            - ./service/nginx/private:/etc/nginx/private:ro
+            - ./service/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+            - ./service/nginx/sites-enabled:/etc/nginx/sites-enabled:ro
+            - ./service/nginx/sites-available:/etc/nginx/sites-available:ro
+            # - ./service/certbot:/etc/letsencrypt:ro
+            - ./www/html:/var/www/html
+            # - ./www/certbot:/var/www/certbot:ro
+            - ./log/nginx:/var/log/nginx
+        ports:
+            - "80:80"
+            - "443:443"
+        env_file:
+            - ./docker/common.env
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
+        # command: "/bin/sh -c 'while :; do sleep 48h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+        # help:
+            # 설정 파일 다시 로드 :
+                # docker-compose exec nginx nginx -s reload
+            # Certbot 연동 :
+                # command 주석 해제 (48시간마다 설정 및 인증서를 다시 로드한다.)
+                # volumes에서 Certbot 관련 디렉터리를 마운트한다.
+
+
+    # certbot: # https://hub.docker.com/r/certbot/certbot
+        # image: certbot/certbot
+        # volumes:
+            # - ./service/certbot:/etc/letsencrypt
+            # - ./www/certbot:/var/www/certbot
+        # env_file:
+            # - ./docker/common.env
+        # entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 48h & wait $${!}; done;'"
+        # help:
+            # 초기 인증서 설정은 ./script/init_certbot.sh 스크립트 이용 (도메인 및 이메일 수정할 것)
+
+
+    # nodejs: # https://hub.docker.com/_/node
+        # build: docker/nodejs
+        # restart: always
+        # volumes:
+            # - ./app:/app
+        # environment:
+            # NODE_ENV: production
+        # env_file:
+            # - ./docker/common.env
+        # working_dir: /app
+        # entrypoint: "npm run docker"
+        # user: 2000
+        # help:
+            # 노드 환경 변수는 상황에 맞게 production 또는 development로 변경한다.
+
+
+
+
+
+# container_name : 컨테이너 고유 이름 (지정하지 않을 경우 자동 생성)
+    # 고유값이므로 docker-compose.yml 파일을 복사하여 같은 호스트에서 실행할 경우 수정해야 한다.
+    # 컨테이너 내부에서 다른 컨테이너의 컨테이너/서비스 이름을 모두 사용할 수 있으므로,
+    # 서비스 이름만 지정하고 컨테이너 이름은 지정하지 않는 것이 좋다.
+
+# extra_hosts : 
+    # 지정된 도메인 매핑 정보를 컨테이너의 /etc/hosts에 등록한다.
+    # 컨테이너에서 호스트 아이피를 알면 직접 접속이 가능하지만,
+    # host-gateway를 이용하면 아이피를 모르는 경우에도 도메인으로 접속할 수 있다.
+    # 호스트에서 돌아가는 서비스에 리버스 프록시를 사용할 경우 사용할 수 있다. (e.g. code-server)
+
+# ports vs. expose :
+    # ports  : 컨테이너 포트를 호스트에 매핑하여 노출시킴 (호스트:컨테이너)
+    # expose : 다른 컨테이너에게 포트를 노출시킴 (호스트에는 노출되지 않음)
