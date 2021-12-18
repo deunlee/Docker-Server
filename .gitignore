@@ -1,0 +1,18 @@
+asset/
+backup/
+log/
+
+service/mariadb/database
+service/mariadb/init
+service/mariadb/config.env
+
+service/nginx/private
+service/nginx/helper/block
+# service/nginx/sites-available
+# service/nginx/sites-enabled
+# !service/nginx/sites-available/your.domain.com.conf
+# !service/nginx/sites-enabled/block-direct-ip.conf
+
+www/html/**
+!www/html/index.php
+!www/html/robots.txt
