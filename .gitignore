@@ -1,6 +1,7 @@
 asset/
 backup/
 log/
+*.ini
 
 service/mariadb/database
 service/mariadb/init
@@ -16,3 +17,4 @@ service/nginx/helper/block
 www/html/**
 !www/html/index.php
 !www/html/robots.txt
+
