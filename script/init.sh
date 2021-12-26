@@ -1,6 +1,5 @@
 #!/bin/bash
 
-VER_DOCKER_COMPOSE="2.2.2"
 VER_WORDPRESS="5.8.2"
 VER_PHP_MY_ADMIN="5.1.1"
 
@@ -48,32 +47,6 @@ confirm() {
 
 get_random_string() {
     echo "$(tr -dc A-Za-z0-9 </dev/urandom | head -c 32 ; echo '')"
-}
-
-
-install_docker() {
-    sudo yum -y install docker
-    sudo systemctl start docker
-    sudo systemctl enable docker
-    sudo usermod -aG docker ec2-user
-}
-
-
-install_docker_compose_v2() {
-    #이미 있는지 체크
-    docker compose version
-
-    
-    PLUGIN_PATH="~/.docker/cli-plugins/docker-compose"
-    mkdir -p ~/.docker/cli-plugins/
-    curl -SL "https://github.com/docker/compose/releases/download/v$VER_DOCKER_COMPOSE/docker-compose-linux-$(uname -m)" -o $PLUGIN_PATH
-    chmod +x "$PLUGIN_PATH"
-
-    echo -e "${DGRAY}\c"
-    docker compose version
-    echo -e "${NC}\c"
-    echo ">>> Docker-Compose plugin is installed."
-    
 }
 
 
@@ -213,7 +186,7 @@ init_nginx() {
 
 main() {
     echo "========================================"
-    echo ">>> Docker-Web Init Script (V.1.2.1)"
+    echo ">>> Docker Server Init Script (V.1.2.1)"
     echo "========================================"
     echo
 
@@ -224,9 +197,6 @@ main() {
         echo
         exit
     fi
-
-    install_docker
-    install_docker_compose_v2
 
     if [ $(confirm ">>> Do you want to install WordPress?" "y") = "y" ]; then
         install_wordpress
@@ -245,16 +215,4 @@ main() {
     echo ">>> Finished!"
 }
 
-
 main
-
-
-# Colors
-# Black        0;30     Dark Gray     1;30
-# Red          0;31     Light Red     1;31
-# Green        0;32     Light Green   1;32
-# Brown/Orange 0;33     Yellow        1;33
-# Blue         0;34     Light Blue    1;34
-# Purple       0;35     Light Purple  1;35
-# Cyan         0;36     Light Cyan    1;36
-# Light Gray   0;37     White         1;37
