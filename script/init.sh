@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 VER_WORDPRESS="5.8.2"
 VER_PHP_MY_ADMIN="5.1.1"
@@ -16,23 +16,29 @@ mkdir -p "$PATH_SVC/mariadb/database"
 mkdir -p "$PATH_SVC/mariadb/init"
 mkdir -p "$PATH_HTML"
 
+################################################################################
 
 NC='\033[0m' # No Color
 RED='\033[0;31m'
 DGRAY='\033[1;30m'
 
+log_info()  { echo -e "\033[1;32m[INFO]\033[0m $*"  ; }
+log_warn()  { echo -e "\033[1;33m[WARN]\033[0m $*"  ; }
+log_error() { echo -e "\033[1;31m[ERROR]\033[0m $*" ; }
+log_debug() { echo -e "\033[1;35m[DEBUG]\033[0m $*" ; }
 
 confirm() {
     # $1 for prompt string, $2 for default answer
-    prompt="${1:-Are you sure?} "
+    PROMPT="${1:-Are you sure?} "
     case $2 in
-        [Yy]) prompt="$prompt[Y/n] " ;;
-        [Nn]) prompt="$prompt[y/N] " ;;
-        *)    prompt="$prompt[y/n] " ;;
+        [Yy]) PROMPT="$PROMPT[Y/n] " ;;
+        [Nn]) PROMPT="$PROMPT[y/N] " ;;
+        *)    PROMPT="$PROMPT[y/n] " ;;
     esac
     while true; do
-        read -r -p "$prompt" response
-        case $response in
+        echo -en "\033[1;36m[CHECK]\033[0m " 1>&2
+        read -r -p "$PROMPT" INPUT
+        case $INPUT in
             [Yy]|[Yy][Ee][Ss]) echo 'y'; break ;;
             [Nn]|[Nn][Oo])     echo 'n'; break ;;
             "") 
@@ -44,11 +50,43 @@ confirm() {
     done
 }
 
-
 get_random_string() {
     echo "$(tr -dc A-Za-z0-9 </dev/urandom | head -c 32 ; echo '')"
 }
 
+################################################################################
+
+run_command() {
+    echo -en "\033[1;30m"
+    $@
+    RET=$?
+    echo -en "\033[0m"
+    return $RET
+}
+
+# check() {
+#     which $1 > /dev/null 2>&1
+# }
+
+check_docker() {
+    VER_DOCKER="$(docker --version)"
+    if [ $? -ne 0 ]; then
+        log_error "Docker is NOT installed. Please install docker first."
+        exit
+    else
+        log_info "Docker is installed. \033[1;30m($VER_DOCKER)\033[0m"
+    fi
+
+    VER_COMPOSE="$(docker compose version)"
+    if [ $? -ne 0 ]; then
+        log_error "Compose plugin is NOT installed. Please install docker-compose(v2) first."
+        exit
+    else
+        log_info "Compose plugin is installed. \033[1;30m($VER_COMPOSE)\033[0m"
+    fi
+}
+
+################################################################################
 
 install_php_my_admin() {
     PMA_URL="https://files.phpmyadmin.net/phpMyAdmin/$VER_PHP_MY_ADMIN/phpMyAdmin-$VER_PHP_MY_ADMIN-all-languages.zip"
@@ -58,17 +96,15 @@ install_php_my_admin() {
 
     # Confirm reinstallation if already installed.
     if [ -d "$PMA_PATH" ]; then
-        echo ">>> phpMyAdmin is already installed."
-        if [ $(confirm ">>> Do you want to reinstall?" "n") = "n" ]; then
+        log_info "phpMyAdmin is already installed."
+        if [ $(confirm "Do you want to reinstall?" "n") = "n" ]; then
             return 0
         fi
     fi
 
     # Download the file.
     if [ ! -e "$PMA_FILE" ]; then
-        echo -e "${DGRAY}\c"
-        wget "$PMA_URL" -O "$PMA_FILE"
-        echo -e "${NC}\c"
+        run_command wget "$PMA_URL" -O "$PMA_FILE"
     fi
 
     # Unzip and move it.
@@ -85,9 +121,10 @@ install_php_my_admin() {
     # Create temporary directory.
     mkdir "$PMA_PATH/tmp"
     chmod 777 "$PMA_PATH/tmp"
-    echo ">>> phpMyAdmin has been successfully installed."
+    log_info "phpMyAdmin has been successfully installed. (v.$VER_PHP_MY_ADMIN)"
 }
 
+################################################################################
 
 install_wordpress() {
     # https://wordpress.org/download/releases/
@@ -98,8 +135,8 @@ install_wordpress() {
 
     # Confirm reinstallation if already installed.
     if [ -d "$WP_PATH" ]; then
-        echo ">>> WordPress is already installed."
-        if [ $(confirm ">>> Do you want to reinstall?" "n") = "n" ]; then
+        log_info "WordPress is already installed."
+        if [ $(confirm "Do you want to reinstall?" "n") = "n" ]; then
             return 0
         fi
         rm -rf "$WP_PATH_OLD"
@@ -108,9 +145,7 @@ install_wordpress() {
 
     # Download the file.
     if [ ! -e "$WP_FILE" ]; then
-        echo -e "${DGRAY}\c"
-        wget "$WP_URL" -O "$WP_FILE"
-        echo -e "${NC}\c"
+        run_command wget "$WP_URL" -O "$WP_FILE"
     fi
 
     # Unzip and move it.
@@ -138,8 +173,9 @@ install_wordpress() {
     sed -i "s/define( 'LOGGED_IN_SALT',   'put your unique phrase here' );/define( 'LOGGED_IN_SALT',   '$(get_wp_random)' );/g" "$WP_CONFIG"
     sed -i "s/define( 'NONCE_SALT',       'put your unique phrase here' );/define( 'NONCE_SALT',       '$(get_wp_random)' );/g" "$WP_CONFIG"
 
-    if [ $(confirm ">>> Do you want to add NGINX config file for WordPress?" "y") = "y" ]; then
-        read -p ">>> Enter your domain name (test.lan): " NG_DOMAIN
+    if [ $(confirm "Do you want to add NGINX config file for WordPress?" "y") = "y" ]; then
+        echo -en "\033[1;36m[CHECK]\033[0m " 1>&2
+        read -p "Enter your domain name (test.lan): " NG_DOMAIN
         NG_DOMAIN=${NG_DOMAIN:-test.lan}
         NG_DEFAULT="$PATH_SVC/nginx/sites-available/your.domain.com.conf"
         NG_CONFIG="$PATH_SVC/nginx/sites-enabled/$NG_DOMAIN.conf"
@@ -148,20 +184,22 @@ install_wordpress() {
         sed -i "s/your.domain.com/$NG_DOMAIN/" "$NG_CONFIG"
     fi
 
-    echo ">>> WordPress has been successfully installed."
+    log_info "WordPress has been successfully installed. (v.$VER_WORDPRESS)"
 }
 
+################################################################################
 
 init_mariadb() {
     DB_CONFIG="$PATH_SVC/mariadb/config.env"
     if [ ! -e "$DB_CONFIG" ]; then
-        echo ">>> Creating MariaDB config file..."
+        log_info "Creating MariaDB config file..."
         cp "$PATH_SVC/mariadb/config-sample.env" "$DB_CONFIG"
         sed -i -e "s/MYSQL_ROOT_PASSWORD=.*/MYSQL_ROOT_PASSWORD=$(get_random_string)/" "$DB_CONFIG"
         sed -i -e "s/MYSQL_PASSWORD=.*/MYSQL_PASSWORD=$(get_random_string)/" "$DB_CONFIG"
     fi
 }
 
+################################################################################
 
 init_nginx() {
     # Generate default certificate.
@@ -170,40 +208,41 @@ init_nginx() {
     CERT_KEY="$CERT_PATH/default.key"
     mkdir -p "$CERT_PATH"
     if [ ! -e "$CERT_FILE" ] || [ ! -e "$CERT_KEY" ]; then
-        echo ">>> Generating a default certificate for NGINX..."
-        echo -e "${DGRAY}\c"
-        openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
+        log_info "Generating a default certificate for NGINX..."
+        run_command openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
             -subj   "/C=US/ST=Test/L=Test/O=Test/CN=test.com" \
             -keyout "$CERT_KEY" \
             -out    "$CERT_FILE"
         # openssl x509 -text -noout -in "$CERT_FILE"
-        echo -e "${NC}"
         chmod 600 "$CERT_KEY"
         chmod 600 "$CERT_FILE"
     fi
 }
 
+################################################################################
 
 main() {
     echo "========================================"
-    echo ">>> Docker Server Init Script (V.1.2.1)"
+    echo ">>> Docker Server Init Script (V.1.3.0)"
     echo "========================================"
     echo
 
     if [ ! -e "$(pwd)/docker-compose.yml" ]; then
         echo
-        echo ">>> The 'docker-compose.yml' file does not exist in current working directory."
-        echo ">>> Change working directory to the path it is in and run this script again."
+        log_error "The 'docker-compose.yml' file does not exist in current working directory."
+        log_error "Change working directory to the path it is in and run this script again."
         echo
         exit
     fi
 
-    if [ $(confirm ">>> Do you want to install WordPress?" "y") = "y" ]; then
+    check_docker
+
+    if [ $(confirm "Do you want to install WordPress?" "y") = "y" ]; then
         install_wordpress
         echo
     fi
 
-    if [ $(confirm ">>> Do you want to install phpMyAdmin?" "n") = "y" ]; then
+    if [ $(confirm "Do you want to install phpMyAdmin?" "n") = "y" ]; then
         install_php_my_admin
         echo
     fi
@@ -212,7 +251,7 @@ main() {
     init_nginx
 
 
-    echo ">>> Finished!"
+    log_info "Finished!"
 }
 
 main
