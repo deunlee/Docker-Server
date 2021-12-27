@@ -12,8 +12,8 @@ SCRIPT_DIR="$(dirname $(readlink -f $0))"
 # Cyan         0;36     Light Cyan    1;36
 # Light Gray   0;37     White         1;37
 
-log_info()  { echo -e "\033[1;32m[INFO]\033[0m $*" ; }
-log_warn()  { echo -e "\033[1;33m[WARN]\033[0m $*" ; }
+log_info()  { echo -e "\033[1;32m[INFO]\033[0m $*"  ; }
+log_warn()  { echo -e "\033[1;33m[WARN]\033[0m $*"  ; }
 log_error() { echo -e "\033[1;31m[ERROR]\033[0m $*" ; }
 log_debug() { echo -e "\033[1;35m[DEBUG]\033[0m $*" ; }
 # $@ is array, $* is string, $# is param count, $? is return value
@@ -89,6 +89,10 @@ update() {
         run_command sudo yum update
     fi
     # yum update -y
+
+    if [ $? -ne 0 ]; then
+        log_error "Failed to update"
+    fi
 }
 
 ################################################################################
@@ -347,7 +351,7 @@ EOT
 
 main() {
     echo "========================================"
-    echo ">>> DeunLee's Init Script (v.1.1.0)"
+    echo ">>> DeunLee's Init Script (v.1.1.1)"
     echo "========================================"
     echo
     
@@ -379,8 +383,12 @@ main() {
     install_package "code-server" "" "install_code_server"
     install_code_server_extensions
     install_script  "neofetch"    "" "https://raw.githubusercontent.com/dylanaraps/neofetch/master/neofetch"
-    
     echo
+    
+    if [ ! -e ~/docker ] && [ $(confirm "Do you want to clone deunlee/Docker-Server repository to ~/docker?" "n") = "y" ]; then
+        git clone https://github.com/deunlee/Docker-Server ~/docker
+    fi
+
     log_info "Finished!"
 }
 
