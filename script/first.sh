@@ -1,4 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+SCRIPT_DIR="$(dirname $(readlink -f $0))"
 
 # Colors
 # Black        0;30     Dark Gray     1;30
@@ -18,25 +20,44 @@ log_debug() { echo -e "\033[1;35m[DEBUG]\033[0m $*" ; }
 
 confirm() {
     # $1 for prompt string, $2 for default answer
-    prompt="${1:-Are you sure?} "
+    PROMPT="${1:-Are you sure?} "
+    DEFAULT=""
+    INPUT=""
     case $2 in
-        [Yy]) prompt="$prompt[Y/n] " ;;
-        [Nn]) prompt="$prompt[y/N] " ;;
-        *)    prompt="$prompt[y/n] " ;;
+        [Yy]) DEFAULT="y"; PROMPT="$PROMPT[Y/n] "   ;;
+        [Nn]) DEFAULT="n"; PROMPT="$PROMPT[y/N] "   ;;
+        [Ii]) DEFAULT="i"; PROMPT="$PROMPT[y/n/I] " ;;
+        Yi)   DEFAULT="y"; PROMPT="$PROMPT[Y/n/i] " ;;
+        Ni)   DEFAULT="n"; PROMPT="$PROMPT[y/N/i] " ;;
+        yni)  DEFAULT="";  PROMPT="$PROMPT[y/n/i] " ;;
+        *)    DEFAULT="";  PROMPT="$PROMPT[y/n] "   ;;
     esac
     while true; do
         echo -en "\033[1;36m[CHECK]\033[0m " 1>&2
-        read -r -p "$prompt" response
-        case $response in
+        read -r -p "$PROMPT" INPUT
+        case $INPUT in
             [Yy]|[Yy][Ee][Ss]) echo 'y'; break ;;
             [Nn]|[Nn][Oo])     echo 'n'; break ;;
-            "") 
+            [Ii]|[Ii][Nn][Tt])
                 case $2 in
-                    [Yy]) echo 'y'; break ;;
-                    [Nn]) echo 'n'; break ;;
+                    [Ii]|Yi|Ni|yni) echo 'i'; break ;;
                 esac ;;
+            "")
+                if [ "$DEFAULT" != "" ]; then
+                    echo "$DEFAULT"; break
+                fi ;;
         esac
     done
+}
+
+trim() {
+    # https://stackoverflow.com/questions/369758/how-to-trim-whitespace-from-a-bash-variable
+    local var="$*"
+    # Remove leading whitespace characters
+    var="${var#"${var%%[![:space:]]*}"}"
+    # Remove trailing whitespace characters
+    var="${var%"${var##*[![:space:]]}"}"   
+    printf '%s' "$var"
 }
 
 get_distribution() {
@@ -47,6 +68,8 @@ get_distribution() {
 	echo "$DIST_ID"
 }
 
+################################################################################
+
 run_command() {
     echo -en "\033[1;30m"
     $@
@@ -54,7 +77,6 @@ run_command() {
     echo -en "\033[0m"
     return $RET
 }
-
 
 check() {
     which $1 > /dev/null 2>&1
@@ -68,6 +90,8 @@ update() {
     fi
     # yum update -y
 }
+
+################################################################################
 
 install() {
     if check apt ; then
@@ -100,7 +124,7 @@ install_package() { # install a package
         T=" already"
     elif [ $(confirm "Do you want to install $PACKAGE?" "$RECOMMEND") = "y" ]; then
         $INSTALL_FUNC "$PACKAGE"
-        if [ $? -ne 0 ]; then # failed to install
+        if [ $? -ne 0 ]; then
             log_error "The package is NOT installed: $PACKAGE"
             return 1
         fi
@@ -113,10 +137,34 @@ install_package() { # install a package
     if [ "$T" = "" ]; then echo ; fi
 }
 
+install_script() { # install(download) a script (/usr/local/bin)
+    SCRIPT="$1"
+    RECOMMEND="${2:-y}"
+    DOWNLOAD_URL="$3"
+
+    SCRIPT_PATH="/usr/local/bin/$SCRIPT"
+
+    T=""
+    if [ -e "$SCRIPT_PATH" ] ; then
+        T=" already"
+    elif [ $(confirm "Do you want to install $SCRIPT script?" "$RECOMMEND") = "y" ]; then
+        run_command sudo curl -o "$SCRIPT_PATH" -fsSL "$DOWNLOAD_URL"
+        if [ $? -ne 0 ]; then
+            log_error "The script is NOT installed: $SCRIPT"
+            return 1
+        fi
+        sudo chmod +x "$SCRIPT_PATH"
+    else
+        return 0 # user pressed "n"
+    fi
+    
+    log_info "The script  is$T installed: $SCRIPT"
+    if [ "$T" = "" ]; then echo ; fi
+}
+
 ################################################################################
 
 install_htop() {
-    echo -en "\033[1;30m"
     case $(get_distribution) in
         centos) install epel-release; install htop ;;
         *)      install htop ;;
@@ -125,18 +173,17 @@ install_htop() {
 
 ################################################################################
 
-zsh_install_oh_my_zsh() {
+install_oh_my_zsh() {
     check zsh; if [ $? -ne 0 ]; then return 1; fi # zsh is not installed
 
+    T=""
     if [ -e ~/.oh-my-zsh ]; then
-        log_info "The plugin  is already installed: oh-my-zsh"
+        T=" already"
     elif [ $(confirm "Do you want to install oh-my-zsh?" "y") = "y" ]; then
         # https://github.com/ohmyzsh/ohmyzsh
         echo -en "\033[1;30m"
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" --skip-chsh --unattended | cat
-        if [ $? -eq 0 ]; then
-            log_info "The plugin is installed: oh-my-zsh"
-        else
+        if [ $? -ne 0 ]; then
             log_error "The plugin is NOT installed: oh-my-zsh"
             return 1
         fi
@@ -152,6 +199,10 @@ zsh_install_oh_my_zsh() {
         sed -i 's/plugins=([A-Za-z]*)/plugins=(git zsh-syntax-highlighting zsh-autosuggestions)/' ~/.zshrc
         # source ~/.zshrc
     fi
+
+    VERSION="$(git --git-dir ~/.oh-my-zsh/.git --no-pager log -1 --format='%ai')"
+    log_info "The plugin  is$T installed: oh-my-zsh \033[1;30m($VERSION)\033[0m"
+    if [ "$T" = "" ]; then echo ; fi
 }
 
 zsh_set_default_shell() {
@@ -192,7 +243,7 @@ install_docker() {
     fi
 }
 
-docker_install_compose() {
+install_docker_compose() {
     check docker; if [ $? -ne 0 ]; then return 1; fi
 
     T=""
@@ -233,16 +284,74 @@ install_code_server() {
     fi
     run_command sudo systemctl status code-server@$USER | cat
     run_command cat "$CONFIG_FILE"
+
+    install_code_server_extensions
+}
+
+install_code_server_extensions() {
+    check code-server; if [ $? -ne 0 ]; then return 1; fi
+
+    INPUT=$(confirm "Do you want to install some extensions for code-server?" "Yi")
+    if [ "$INPUT" = "n" ]; then return 0; fi
+
+    EXT_FILE="$SCRIPT_DIR/code_server_ext.txt"
+    cat <<EOT > "$EXT_FILE"
+############### Development ###############
+ms-vscode.cpptools
+ms-python.python
+# ms-azuretools.vscode-docker
+
+################## Tool ###################
+mhutchie.git-graph
+tomoki1207.pdf
+tyriar.sort-lines
+
+############### JavaScript ################
+# dbaeumer.vscode-eslint
+# editorconfig.editorconfig
+
+################## Style ##################
+vscode-icons-team.vscode-icons
+# ms-ceintl.vscode-language-pack-ko
+# ms-ceintl.vscode-language-pack-ja
+EOT
+
+    if check docker;              then sed -i 's/# ms-azuretools.vscode-docker/ms-azuretools.vscode-docker/'             "$EXT_FILE"; fi
+    if [ "$(date +%Z)" = "KST" ]; then sed -i 's/# ms-ceintl.vscode-language-pack-ko/ms-ceintl.vscode-language-pack-ko/' "$EXT_FILE"; fi
+    if [ "$(date +%Z)" = "JST" ]; then sed -i 's/# ms-ceintl.vscode-language-pack-ja/ms-ceintl.vscode-language-pack-ja/' "$EXT_FILE"; fi
+
+    if [ "$INPUT" = "i" ]; then
+        vi "$EXT_FILE"
+    fi
+
+    while IFS= read -r LINE || [[ -n "$LINE" ]]; do
+        LINE="$(trim $LINE)"
+        if [ "$LINE" != "" ] && [ "${LINE:0:1}" != "#" ]; then
+            run_command code-server --install-extension "$LINE"
+        fi
+    done < "$EXT_FILE"
+    rm "$EXT_FILE"
+
+#     cat <<EOT > ~/.local/share/code-server/User/settings.json
+# {
+#     "editor.fontFamily": "Consolas, Hack, 'Malgun Gothic', monospace",
+#     "workbench.colorTheme": "Default Dark+",
+#     "workbench.iconTheme": "vscode-icons",
+#     "workbench.tree.indent": 16,
+#     "telemetry.enableTelemetry": false,
+# }
+# EOT
 }
 
 ################################################################################
 
 main() {
     echo "========================================"
-    echo ">>> DeunLee's Init Script (v.1.0.0)"
+    echo ">>> DeunLee's Init Script (v.1.1.0)"
     echo "========================================"
     echo
     
+    sudo true
     run_command uname -mrs
     run_command id
     echo
@@ -257,19 +366,21 @@ main() {
 
     # update
 
-    install_package "htop" "" "install_htop"
+    install_package "htop"        "" "install_htop"
     install_package "git"
     install_package "gcc"
+    install_package "vim"
     install_package "zsh"
-    zsh_install_oh_my_zsh
+    install_oh_my_zsh
     zsh_set_default_shell
     # sudo apt install fonts-powerline
-    install_package "docker" "" "install_docker"
-    docker_install_compose
+    install_package "docker"      "" "install_docker"
+    install_docker_compose
     install_package "code-server" "" "install_code_server"
-
-    #TODO vim
+    install_code_server_extensions
+    install_script  "neofetch"    "" "https://raw.githubusercontent.com/dylanaraps/neofetch/master/neofetch"
     
+    echo
     log_info "Finished!"
 }
 
