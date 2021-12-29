@@ -7,9 +7,9 @@ cd server
 ```
 
 ```
-curl -o first.sh https://raw.githubusercontent.com/deunlee/Docker-Server/main/script/first.sh
-chmod +x first.sh
-./first.sh
+curl -o quick.sh https://raw.githubusercontent.com/deunlee/Docker-Server/main/script/quick.sh
+chmod +x quick.sh
+./quick.sh
 ```
 
 
