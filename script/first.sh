@@ -64,33 +64,29 @@ function_exists() { # https://stackoverflow.com/questions/85880/determine-if-a-f
     return $?
 }
 
-get_distribution() {
-	DIST_ID=""
-	if [ -r /etc/os-release ]; then
-		DIST_ID="$(. /etc/os-release && echo "$ID")"
-	fi
-	echo "$DIST_ID"
+get_dist_name()    { if [ -r /etc/os-release ]; then . /etc/os-release && echo "$ID";      fi }
+get_dist_version() { if [ -r /etc/os-release ]; then . /etc/os-release && echo "$VERSION"; fi }
+get_os_info() {
+    if [ -r /etc/os-release ]; then
+        . /etc/os-release && echo "$NAME $VERSION ($ID) $DGRAY(like: $ID_LIKE)$NC"
+    fi
 }
 
 ################################################################################
 
-run_command() {
+shadow() {
     echo -en "$DGRAY"
     $@
-    RET=$?
+    ret=$?
     echo -en "$NC"
-    return $RET
-}
-
-check() {
-    which $1 > /dev/null 2>&1
+    return $ret
 }
 
 update() {
     if check apt ; then
-        run_command sudo apt 
+        shadow sudo apt 
     elif check yum ; then
-        run_command sudo yum update
+        shadow sudo yum update
     fi
     # yum update -y
 
@@ -101,30 +97,17 @@ update() {
 
 ################################################################################
 
-get_version() {
-    $1 --version | head -n 1
-}
-
+check()   { which $1 > /dev/null 2>&1 ; }
+version() { $1 --version | head -n 1; }
 install() {
     sudo true
-
     if check apt ; then
-        run_command sudo apt install -y $@ | cat
+        shadow sudo apt install -y $@ | cat
     elif check yum ; then
-        run_command sudo yum -y install $@ | cat
+        shadow sudo yum -y install $@ | cat
     else
         log_error "This script only supports apt and yum package managers."
         exit
-    fi
-
-    RET=$?
-    # T="is"; if [ $# -gt 1 ]; then T="are"; fi
-    if [ $RET -eq 0 ]; then
-        # log_info "$* $T installed!"
-        return 0
-    else
-        # log_error "$* $T not installed."
-        return 1
     fi
 }
 
@@ -135,11 +118,11 @@ install_package() { # install a package
 
     # Functions can be overridden.
     func_check="${name}_check"
-    func_install="${name}_install"
     func_version="${name}_version"
+    func_install="${name}_install"
     function_exists "$func_check"   || func_check="check"
+    function_exists "$func_version" || func_version="version"
     function_exists "$func_install" || func_install="install"
-    function_exists "$func_version" || func_version="get_version"
 
     T="Installed"
     if $func_check "$name"; then
@@ -169,7 +152,7 @@ install_script() { # install(download) a script (/usr/local/bin)
     if [ -e "$script_path" ] ; then
         T="Already installed"
     elif [ $(confirm "Do you want to install $name script?" "$is_recommend") = "y" ]; then
-        run_command sudo curl -o "$script_path" -fsSL "$download_url"
+        shadow sudo curl -o "$script_path" -fsSL "$download_url"
         if [ $? -ne 0 ]; then
             log_error "NOT installed: $name"
             return 1
@@ -186,10 +169,17 @@ install_script() { # install(download) a script (/usr/local/bin)
 ################################################################################
 
 htop_install() {
-    case $(get_distribution) in
-        centos) install epel-release; install htop ;;
-        *)      install htop ;;
+    case $(get_dist_name) in
+        centos) # CentOS (tested: 7)
+            install epel-release ;;
+        ol) # Oracle Linux (tested: 7.9, 8.5)
+            case $(get_dist_version) in
+                7*) shadow sudo rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm ;;
+                8*) shadow sudo rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm ;;
+                *)  return 1 ;;
+            esac ;;
     esac
+    install htop
 }
 
 ################################################################################
@@ -204,10 +194,10 @@ omz_install() {
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" --skip-chsh --unattended | cat
     if [ $? -ne 0 ]; then return 1; fi
 
-    run_command git clone https://github.com/zsh-users/zsh-syntax-highlighting ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
+    shadow git clone https://github.com/zsh-users/zsh-syntax-highlighting ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
     log_info "Plugin is installed: zsh-syntax-highlighting"
 
-    run_command git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+    shadow git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
     log_info "Plugin is installed: zsh-autosuggestions"
     echo
 
@@ -223,9 +213,9 @@ zsh_set_default_shell() {
         if [ $(confirm "Do you want to change default shell to zsh?" "y") = "y" ]; then
             # sudo chsh -s $(which zsh)
             if [ -e /bin/zsh ]; then
-                run_command sudo usermod --shell /bin/zsh $USER
+                shadow sudo usermod --shell /bin/zsh $USER
             else
-                run_command sudo usermod --shell $(which zsh) $USER
+                shadow sudo usermod --shell $(which zsh) $USER
             fi
             log_info "The default shell changed to zsh."
             log_info "This setting will not take effect until you log in again."
@@ -238,14 +228,20 @@ zsh_set_default_shell() {
 
 docker_install() {
     echo -en "$DGRAY"
-    case $(get_distribution) in
-        amzn) sudo yum -y install docker              ;;
-        *)    curl -fsSL https://get.docker.com/ | sh ;;
+    case $(get_dist_name) in
+        amzn) # Amazon Linux 2 (tested: 2)
+            # https://docs.aws.amazon.com/ko_kr/AmazonECS/latest/developerguide/docker-basics.html
+            sudo amazon-linux-extras install -y docker | cat ;;
+        ol) # Oracle Linux (tested: 7.9, 8.5)
+            sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+            sudo yum -y install docker-ce docker-ce-cli containerd.io | cat ;;
+        *)
+            curl -fsSL https://get.docker.com/ | sh ;;
     esac
     if [ $? -ne 0 ]; then return 1; fi
 
-    run_command sudo systemctl start docker
-    run_command sudo systemctl enable docker
+    shadow sudo systemctl start docker
+    shadow sudo systemctl enable docker
     echo
 
     if [ $(confirm "Do you want to add the current user ($USER) to the docker group?" "y") = "y" ]; then
@@ -268,7 +264,7 @@ compose_install() {
     mkdir -p ~/.docker/cli-plugins/
     URL="https://github.com/docker/compose/releases/download/v$DOCKER_COMPOSE_VERSION/docker-compose-linux-$(uname -m)"
     SAVE=~/.docker/cli-plugins/docker-compose
-    run_command curl -SL "$URL" -o "$SAVE"
+    shadow curl -SL "$URL" -o "$SAVE"
     if [ $? -ne 0 ]; then return 1; fi
     chmod +x "$SAVE"
 }
@@ -276,24 +272,32 @@ compose_install() {
 ################################################################################
 
 code_check()   { check code-server; }
-code_version() { get_version code-server; }
+code_version() { version code-server; }
 code_install() {
-    CONFIG_FILE=~/.config/code-server/config.yaml
-
     echo -en "$DGRAY"
     curl -fsSL https://code-server.dev/install.sh | sh
     if [ $? -ne 0 ]; then return 1; fi
 
-    run_command sudo systemctl start code-server@$USER
-    run_command sudo systemctl enable code-server@$USER
+    shadow sudo systemctl start code-server@$USER
+    shadow sudo systemctl enable code-server@$USER
     echo
     
+    CONFIG_FILE=~/.config/code-server/config.yaml
+    restart=0
     if [ $(confirm "Do you want to change the bind address to allow external access to code-server?" "y") = "y" ]; then
-        sed -i 's/bind-addr: 127.0.0.1/bind-addr: 0.0.0.0/' $CONFIG_FILE
-        run_command sudo systemctl restart code-server@$USER
+        sed -i "s/bind-addr: 127.0.0.1/bind-addr: 0.0.0.0/" "$CONFIG_FILE"
+        restart=1
     fi
-    run_command sudo systemctl status code-server@$USER | cat
-    run_command cat "$CONFIG_FILE"
+    if [ $(confirm "Do you want to edit the config file of code-server?" "n") = "y" ]; then
+        vi "$CONFIG_FILE"
+        restart=1
+    fi
+    if [ $restart -eq 1 ]; then
+        shadow sudo systemctl restart code-server@$USER
+    fi
+
+    shadow sudo systemctl status code-server@$USER | cat
+    shadow cat "$CONFIG_FILE"
 
     code_install_extensions
 }
@@ -335,7 +339,7 @@ EOT
     while IFS= read -r LINE || [[ -n "$LINE" ]]; do
         LINE="$(trim $LINE)"
         if [ "$LINE" != "" ] && [ "${LINE:0:1}" != "#" ]; then
-            run_command code-server --install-extension "$LINE"
+            shadow code-server --install-extension "$LINE"
             if [ $? -eq 0 ]; then
                 log_info "The extension is installed: $LINE"
             else
@@ -359,13 +363,13 @@ EOT
 ################################################################################
 
 main() {
-    echo "========================================"
-    echo ">>> DeunLee's Init Script (v.1.3.0)"
-    echo "========================================"
+    echo "=================================================="
+    echo "===   DeunLee's Quick Setup Script (v.1.3.2)   ==="
+    echo "=================================================="
     echo
     
-    run_command uname -mrs
-    run_command id
+    log_info $(get_os_info)
+    log_info $(uname -mrs)
     echo
 
     if [ "$USER" = "root" ]; then
@@ -377,6 +381,10 @@ main() {
     fi
 
     # update
+    if check yum; then
+        shadow sudo yum clean metadata
+        # shadow sudo yum install -y yum-utils
+    fi
 
     install_package "htop"
     install_package "git"
@@ -396,7 +404,7 @@ main() {
     echo
     
     if [ ! -e ~/docker ] && [ $(confirm "Do you want to clone deunlee/Docker-Server repository to ~/docker?" "n") = "y" ]; then
-        run_command git clone https://github.com/deunlee/Docker-Server ~/docker
+        shadow git clone https://github.com/deunlee/Docker-Server ~/docker
     fi
 
     log_info "Finished!"
