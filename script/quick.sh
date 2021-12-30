@@ -184,6 +184,26 @@ htop_install() {
 
 ################################################################################
 
+zsh_install() {
+    install zsh || return 1
+
+    if [ "$SHELL" != "/bin/zsh" ] && [ "$SHELL" != "/usr/bin/zsh" ]; then
+        if [ $(confirm "Do you want to change default shell to zsh?" "y") = "y" ]; then
+            # sudo chsh -s $(which zsh)
+            if [ -e /bin/zsh ]; then
+                shadow sudo usermod --shell /bin/zsh $USER
+            else
+                shadow sudo usermod --shell $(which zsh) $USER
+            fi
+            log_info "The default shell changed to zsh."
+            log_info "This setting will not take effect until you log in again."
+        fi
+        echo
+    fi
+
+    # sudo apt install fonts-powerline
+}
+
 omz_check()   { [ -e ~/.oh-my-zsh ]; }
 omz_version() { git --git-dir ~/.oh-my-zsh/.git --no-pager log -1 --format="%ai"; }
 omz_install() {
@@ -204,24 +224,6 @@ omz_install() {
     sed -i 's/ZSH_THEME="[A-Za-z]*"/ZSH_THEME="agnoster"/' ~/.zshrc
     sed -i 's/plugins=([A-Za-z]*)/plugins=(git zsh-syntax-highlighting zsh-autosuggestions)/' ~/.zshrc
     # source ~/.zshrc
-}
-
-zsh_set_default_shell() {
-    check zsh || return 1 # zsh is not installed
-
-    if [ "$SHELL" != "/bin/zsh" ] && [ "$SHELL" != "/usr/bin/zsh" ]; then
-        if [ $(confirm "Do you want to change default shell to zsh?" "y") = "y" ]; then
-            # sudo chsh -s $(which zsh)
-            if [ -e /bin/zsh ]; then
-                shadow sudo usermod --shell /bin/zsh $USER
-            else
-                shadow sudo usermod --shell $(which zsh) $USER
-            fi
-            log_info "The default shell changed to zsh."
-            log_info "This setting will not take effect until you log in again."
-        fi
-        echo
-    fi
 }
 
 ################################################################################
@@ -364,7 +366,7 @@ EOT
 
 main() {
     echo "=================================================="
-    echo "===   DeunLee's Quick Setup Script (v.1.3.2)   ==="
+    echo "===   DeunLee's Quick Setup Script (v.1.3.3)   ==="
     echo "=================================================="
     echo
     
@@ -392,8 +394,6 @@ main() {
     install_package "vim"
     install_package "zsh"
     install_package "omz"     "oh-my-zsh"
-    zsh_set_default_shell
-    # sudo apt install fonts-powerline
     install_package "docker"
     install_package "compose" "docker-compose"
     install_package "code"    "code-server"
