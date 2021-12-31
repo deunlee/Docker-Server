@@ -1,4 +1,5 @@
 # https://github.com/docker-library/wordpress/blob/5b53a06ca346a2396f2e0373959314c5c9c73e04/php7.3/fpm-alpine/Dockerfile
+
 FROM php:7.3-fpm-alpine
 
 # persistent dependencies
@@ -12,7 +13,8 @@ RUN apk add --no-cache \
 # Alpine package for "imagemagick" contains ~120 .so files, see: https://github.com/docker-library/wordpress/pull/497
 		imagemagick \
 # TimeZone support
-		tzdata
+		tzdata \
+	;
 
 # install the PHP extensions we need (https://make.wordpress.org/hosting/handbook/handbook/server-environment/#php-extensions)
 RUN set -ex; \
@@ -75,10 +77,8 @@ RUN { \
 
 
 # Add the entry point script
-RUN apk add --no-cache tzdata
 COPY docker-php-entrypoint /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-php-entrypoint
-
 
 # Add the main user with specific UID (Do NOT change user name)
 ARG USER=www-data
