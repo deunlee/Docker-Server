@@ -1,10 +1,11 @@
 #!/bin/bash
 
-if ! [ -x "$(command -v docker-compose)" ]; then
+if ! [ -x "$(command -v docker compose)" ]; then
   echo 'Error: docker-compose is not installed.' >&2
   exit 1
 fi
 
+# domains=(example.org www.example.org)
 domains="<your-domain>" 
 rsa_key_size=2048
 data_path="./service/certbot"
@@ -29,7 +30,7 @@ staging=0 # Set to 1 if you're testing your setup to avoid hitting request limit
 echo "### Creating dummy certificate for $domains ..."
 path="/etc/letsencrypt/live/$domains"
 mkdir -p "$data_path/live/$domains"
-docker-compose run --rm --entrypoint "\
+docker compose run --rm --entrypoint "\
   openssl req -x509 -nodes -newkey rsa:1024 -days 1\
     -keyout '$path/privkey.pem' \
     -out '$path/fullchain.pem' \
@@ -37,11 +38,11 @@ docker-compose run --rm --entrypoint "\
 echo
 
 echo "### Starting nginx ..."
-docker-compose up --force-recreate -d nginx
+docker compose up --force-recreate -d nginx
 echo
 
 echo "### Deleting dummy certificate for $domains ..."
-docker-compose run --rm --entrypoint "\
+docker compose run --rm --entrypoint "\
   rm -Rf /etc/letsencrypt/live/$domains && \
   rm -Rf /etc/letsencrypt/archive/$domains && \
   rm -Rf /etc/letsencrypt/renewal/$domains.conf" certbot
@@ -63,7 +64,7 @@ esac
 # Enable staging mode if needed
 if [ $staging != "0" ]; then staging_arg="--staging"; fi
 
-docker-compose run --rm --entrypoint "\
+docker compose run --rm --entrypoint "\
   certbot certonly --webroot -w /var/www/certbot \
     $staging_arg \
     $email_arg \
@@ -74,4 +75,4 @@ docker-compose run --rm --entrypoint "\
 echo
 
 echo "### Reloading nginx ..."
-docker-compose exec nginx nginx -s reload
+docker compose exec nginx nginx -s reload
