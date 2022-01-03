@@ -11,7 +11,7 @@ services:
         volumes:
             - ./service/mariadb/database:/var/lib/mysql
             - ./service/mariadb/init:/docker-entrypoint-initdb.d:ro
-            - ./service/mariadb/config.cnf:/etc/mysql/conf.d/config.cnf:ro
+            - ./service/mariadb/mariadb.cnf:/etc/mysql/conf.d/mariadb.cnf:ro
         # ports:
             # - "3306:3306"
         env_file:
