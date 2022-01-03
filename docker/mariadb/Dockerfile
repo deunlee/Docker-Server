@@ -1,4 +1,6 @@
-FROM mariadb:10.5.8-focal
+# https://hub.docker.com/_/mariadb
+
+FROM mariadb:10.7.1-focal
 
 # Add the main user with specific UID
 ARG USER=mysql

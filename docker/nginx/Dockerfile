@@ -1,4 +1,6 @@
-FROM nginx:1.19.6-alpine
+# https://hub.docker.com/_/nginx
+
+FROM nginx:1.21.5-alpine
 
 RUN apk add --no-cache \
 		bash \
