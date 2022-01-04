@@ -3,18 +3,24 @@ backup/
 log/
 *.ini
 
-service/mariadb/database
-service/mariadb/init
+service/certbot/**
+!service/certbot/options-ssl-nginx.conf
+!service/certbot/ssl-dhparams.pem
+
+service/mariadb/database/
+service/mariadb/init/**
+!service/mariadb/init/.gitkeep
 service/mariadb/config.env
 
 service/nginx/private
 service/nginx/helper/block
-# service/nginx/sites-available
-# service/nginx/sites-enabled
-# !service/nginx/sites-available/your.domain.com.conf
-# !service/nginx/sites-enabled/block-direct-ip.conf
+service/nginx/sites-available/*.conf
+!service/nginx/sites-available/block_direct_ip.conf
+!service/nginx/sites-available/your.domain.com.conf
+!service/nginx/sites-available/default_server.conf
+service/nginx/sites-enabled/*.conf
+!service/nginx/sites-enabled/default_server.conf
 
 www/html/**
 !www/html/index.php
 !www/html/robots.txt
-
