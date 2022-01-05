@@ -2,7 +2,7 @@
 
 SCRIPT_DIR="$(dirname $(readlink -f $0))"
 
-NC="\033[0m"
+NC="\033[0m" # No Color
 BLACK="\033[0;30m"  ; DGRAY="\033[1;30m"
 RED="\033[0;31m"    ; LRED="\033[1;31m"
 GREEN="\033[0;32m"  ; LGREEN="\033[1;32m"
@@ -98,7 +98,7 @@ update() {
 ################################################################################
 
 check()   { which $1 > /dev/null 2>&1 ; }
-version() { $1 --version | head -n 1; }
+version() { $1 --version | head -n 1;   }
 install() {
     sudo true
     if check apt ; then
@@ -305,8 +305,7 @@ docker_install() {
 
     if [ $(confirm "Do you want to add the current user ($USER) to the docker group?" "y") = "y" ]; then
         sudo usermod -aG docker $USER
-        cat /etc/group | grep docker > /dev/null
-        if [ $? -eq 0 ]; then
+        if grep -q docker /etc/group; then
             log_info "The current user has been added to the docker group."
             log_info "This setting will not take effect until you log in again."
         fi
@@ -370,7 +369,7 @@ code_install_extensions() {
 ############### Development ###############
 ms-vscode.cpptools
 ms-python.python
-# ms-azuretools.vscode-docker
+#ms-azuretools.vscode-docker
 
 ################## Tool ###################
 mhutchie.git-graph
@@ -383,8 +382,8 @@ tyriar.sort-lines
 
 ################## Style ##################
 vscode-icons-team.vscode-icons
-# ms-ceintl.vscode-language-pack-ko
-# ms-ceintl.vscode-language-pack-ja
+#ms-ceintl.vscode-language-pack-ko
+#ms-ceintl.vscode-language-pack-ja
 EOT
 
     if check docker;              then sed -i 's/# ms-azuretools.vscode-docker/ms-azuretools.vscode-docker/'             "$EXT_FILE"; fi
