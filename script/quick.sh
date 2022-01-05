@@ -226,6 +226,63 @@ omz_install() {
     # source ~/.zshrc
 }
 
+zsh_add_aliases() {
+    SHELL_CONFIG=~/.zshrc
+    [ -e "$SHELL_CONFIG" ]                 || return 1 # Returns 1 if the shell config does not exist.
+    grep -q "alias dcache" "$SHELL_CONFIG" && return 0 # Returns 0 if already added.
+    [ $(confirm "Do you want to add some aliases to shell?" "y") = "n" ] && return 0
+
+    cat <<EOT >> "$SHELL_CONFIG"
+
+alias l="ls -alh --color=always -F --group-directories-first |awk '{k=0;s=0;for(i=0;i<=8;i++){;k+=((substr(\$1,i+2,1)~/[rwxst]/)*2^(8-i));};j=4;for(i=4;i<=10;i+=3){;s+=((substr(\$1,i,1)~/[stST]/)*j);j/=2;};if(k){;printf(\"%0o%0o \",s,k);};print;}'"
+alias q='exit'
+alias cl='clear'
+alias h='history'
+alias hs='history | grep'
+alias hsi='history | grep -i'
+alias dcache='echo 3 | sudo tee /proc/sys/vm/drop_caches'
+# alias userinfo='sudo tail -n 3 /etc/passwd && echo && sudo tail -n 3 /etc/shadow && echo && sudo tail -n 3 /etc/group && echo && sudo tail -n 3 /etc/gshadow'
+EOT
+}
+
+zsh_add_docker_aliases() {
+    SHELL_CONFIG=~/.zshrc
+    [ -e "$SHELL_CONFIG" ]               || return 1 # Returns 1 if the shell config does not exist.
+    grep -q "alias dcup" "$SHELL_CONFIG" && return 0 # Returns 0 if already added.
+    [ $(confirm "Do you want to add docker aliases to shell?" "y") = "n" ] && return 0
+    
+    cat <<EOT >> "$SHELL_CONFIG"
+
+alias dps=' docker ps -a'
+alias dimg='docker images'
+alias dpl=' docker pull'
+alias drm=' docker rm'
+alias drmi='docker rmi'
+alias drn=' docker run -it --rm'
+alias dex=' docker exec -it'
+alias dvol='docker volume ls'
+alias dinv='docker volume inspect'
+alias dnet='docker network ls'
+alias dinn='docker network inspect'
+alias dpr=' docker system prune -a'
+alias dco=' docker compose'
+alias dcb=' docker compose build'
+alias dce=' docker compose exec'
+alias dcps='docker compose ps'
+alias dcr=' docker compose run'
+alias dcu=' docker compose up -d'
+alias dcup='docker compose up'
+alias dcdn='docker compose down'
+alias dct=' docker compose top'
+alias dcl=' docker compose logs --tail="50"'
+alias dclf='docker compose logs -f --tail="50"'
+# alias dcp='docker-compose -f /opt/docker-compose.yml'
+# alias dcpull='docker-compose -f /opt/docker-compose.yml pull'
+# alias dclogs='docker-compose -f /opt/docker-compose.yml logs -tf --tail="50" '
+# alias dtail='docker logs -tf --tail="50" "$@"'
+EOT
+}
+
 ################################################################################
 
 docker_install() {
@@ -398,6 +455,8 @@ main() {
     install_package "compose" "docker-compose"
     install_package "code"    "code-server"
 
+    zsh_add_aliases
+    zsh_add_docker_aliases
 
     install_script  "neofetch"                 "https://raw.githubusercontent.com/dylanaraps/neofetch/master/neofetch"
     install_script  "spectre-meltdown-checker" "https://raw.githubusercontent.com/speed47/spectre-meltdown-checker/master/spectre-meltdown-checker.sh"
