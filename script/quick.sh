@@ -83,12 +83,25 @@ shadow() {
 }
 
 update() {
-    if check apt ; then
+    case $(get_dist_name) in
+        rocky) # Rocky Linux (tested: 8.4)
+            shadow sudo dnf update ;;
+        *)
+            if check apt ; then
+                shadow sudo apt 
         shadow sudo apt 
-    elif check yum ; then
-        shadow sudo yum update
-    fi
-    # yum update -y
+                shadow sudo apt 
+        shadow sudo apt 
+                shadow sudo apt 
+        shadow sudo apt 
+                shadow sudo apt 
+            elif check yum ; then
+                shadow sudo yum update
+            else
+                log_error "This script only supports apt, yum and dnf package managers."
+                exit
+            fi ;;
+    esac
 
     if [ $? -ne 0 ]; then
         log_error "Failed to update"
@@ -101,14 +114,20 @@ check()   { which $1 > /dev/null 2>&1 ; }
 version() { $1 --version | head -n 1;   }
 install() {
     sudo true
-    if check apt ; then
-        shadow sudo apt install -y $@ | cat
-    elif check yum ; then
-        shadow sudo yum -y install $@ | cat
-    else
-        log_error "This script only supports apt and yum package managers."
-        exit
-    fi
+
+    case $(get_dist_name) in
+        rocky) # Rocky Linux (tested: 8.4)
+            shadow sudo dnf -y install $@ | cat ;;
+        *)
+            if check apt ; then
+                shadow sudo apt install -y $@ | cat
+            elif check yum ; then
+                shadow sudo yum -y install $@ | cat
+            else
+                log_error "This script only supports apt, yum and dnf package managers."
+                exit
+            fi ;;
+    esac
 }
 
 install_package() { # install a package
@@ -170,7 +189,7 @@ install_script() { # install(download) a script (/usr/local/bin)
 
 htop_install() {
     case $(get_dist_name) in
-        centos) # CentOS (tested: 7)
+        centos|rocky) # CentOS (tested: 7), Rocky Linux (tested: 8.4)
             install epel-release ;;
         ol) # Oracle Linux (tested: 7.9, 8.5)
             case $(get_dist_version) in
@@ -288,12 +307,15 @@ EOT
 docker_install() {
     echo -en "$DGRAY"
     case $(get_dist_name) in
+        rocky) # Rocky Linux (tested: 8.4)
+            sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+            sudo dnf install -y --allowerasing docker-ce ;;
+        ol) # Oracle Linux (tested: 7.9, 8.5)
+            sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+            sudo yum install -y docker-ce docker-ce-cli containerd.io | cat ;;
         amzn) # Amazon Linux 2 (tested: 2)
             # https://docs.aws.amazon.com/ko_kr/AmazonECS/latest/developerguide/docker-basics.html
             sudo amazon-linux-extras install -y docker | cat ;;
-        ol) # Oracle Linux (tested: 7.9, 8.5)
-            sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-            sudo yum -y install docker-ce docker-ce-cli containerd.io | cat ;;
         *)
             curl -fsSL https://get.docker.com/ | sh ;;
     esac
@@ -422,7 +444,7 @@ EOT
 
 main() {
     echo "=================================================="
-    echo "===   DeunLee's Quick Setup Script (v.1.3.3)   ==="
+    echo "===   DeunLee's Quick Setup Script (v.1.3.4)   ==="
     echo "=================================================="
     echo
     
