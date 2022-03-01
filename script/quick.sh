@@ -255,7 +255,7 @@ zsh_add_aliases() {
 
 alias l="ls -alh --color=always -F --group-directories-first |awk '{k=0;s=0;for(i=0;i<=8;i++){;k+=((substr(\$1,i+2,1)~/[rwxst]/)*2^(8-i));};j=4;for(i=4;i<=10;i+=3){;s+=((substr(\$1,i,1)~/[stST]/)*j);j/=2;};if(k){;printf(\"%0o%0o \",s,k);};print;}'"
 alias q='exit'
-alias cl='clear'
+alias cls='clear'
 alias h='history'
 alias hs='history | grep'
 alias hsi='history | grep -i'
@@ -334,7 +334,7 @@ docker_install() {
     fi
 }
 
-DOCKER_COMPOSE_VERSION="2.2.2"
+DOCKER_COMPOSE_VERSION="2.2.3"
 compose_check()   { [ -e ~/.docker/cli-plugins ]; }
 compose_version() { docker compose version; }
 compose_install() {
@@ -390,8 +390,8 @@ code_install_extensions() {
     cat <<EOT > "$EXT_FILE"
 ############### Development ###############
 ms-vscode.cpptools
-ms-python.python
-#ms-azuretools.vscode-docker
+# ms-python.python
+# ms-azuretools.vscode-docker
 
 ################## Tool ###################
 mhutchie.git-graph
@@ -404,8 +404,8 @@ tyriar.sort-lines
 
 ################## Style ##################
 vscode-icons-team.vscode-icons
-#ms-ceintl.vscode-language-pack-ko
-#ms-ceintl.vscode-language-pack-ja
+# ms-ceintl.vscode-language-pack-ko
+# ms-ceintl.vscode-language-pack-ja
 EOT
 
     if check docker;              then sed -i 's/# ms-azuretools.vscode-docker/ms-azuretools.vscode-docker/'             "$EXT_FILE"; fi
@@ -491,3 +491,6 @@ main() {
 }
 
 main
+
+# sudo systemctl stop firewalld
+# sudo systemctl disable firewalld
