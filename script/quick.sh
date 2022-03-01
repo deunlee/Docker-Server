@@ -64,6 +64,8 @@ function_exists() { # https://stackoverflow.com/questions/85880/determine-if-a-f
     return $?
 }
 
+################################################################################
+
 get_dist_name()    { if [ -r /etc/os-release ]; then . /etc/os-release && echo "$ID";      fi }
 get_dist_version() { if [ -r /etc/os-release ]; then . /etc/os-release && echo "$VERSION"; fi }
 get_os_info() {
@@ -88,13 +90,7 @@ update() {
             shadow sudo dnf update ;;
         *)
             if check apt ; then
-                shadow sudo apt 
-        shadow sudo apt 
-                shadow sudo apt 
-        shadow sudo apt 
-                shadow sudo apt 
-        shadow sudo apt 
-                shadow sudo apt 
+                shadow sudo apt
             elif check yum ; then
                 shadow sudo yum update
             else
