@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-VER_WORDPRESS="5.8.2"
-VER_PHP_MY_ADMIN="5.1.1"
+VER_WORDPRESS="5.9.2"
+VER_PHP_MY_ADMIN="5.1.3"
 
 PATH_ASSET="./asset"
 PATH_BACKUP="./backup"
@@ -89,6 +89,38 @@ check_docker() {
         exit
     else
         log_info "Compose plugin is installed. \033[1;30m($VER_COMPOSE)\033[0m"
+    fi
+}
+
+################################################################################
+
+init_mariadb() {
+    DB_CONFIG="$PATH_SVC/mariadb/config.env"
+    if [ ! -e "$DB_CONFIG" ]; then
+        log_info "Creating MariaDB config file..."
+        cp "$PATH_SVC/mariadb/config-sample.env" "$DB_CONFIG"
+        sed -i -e "s/MYSQL_ROOT_PASSWORD=.*/MYSQL_ROOT_PASSWORD=$(get_random_string)/" "$DB_CONFIG"
+        sed -i -e "s/MYSQL_PASSWORD=.*/MYSQL_PASSWORD=$(get_random_string)/" "$DB_CONFIG"
+    fi
+}
+
+################################################################################
+
+init_nginx() {
+    # Generate default certificate.
+    CERT_PATH="$PATH_SVC/nginx/private"
+    CERT_FILE="$CERT_PATH/default.pem"
+    CERT_KEY="$CERT_PATH/default.key"
+    mkdir -p "$CERT_PATH"
+    if [ ! -e "$CERT_FILE" ] || [ ! -e "$CERT_KEY" ]; then
+        log_info "Generating a default certificate for NGINX..."
+        run_command openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
+            -subj   "/C=US/ST=Test/L=Test/O=Test/CN=test.com" \
+            -keyout "$CERT_KEY" \
+            -out    "$CERT_FILE"
+        # openssl x509 -text -noout -in "$CERT_FILE"
+        chmod 600 "$CERT_KEY"
+        chmod 600 "$CERT_FILE"
     fi
 }
 
@@ -195,41 +227,9 @@ install_wordpress() {
 
 ################################################################################
 
-init_mariadb() {
-    DB_CONFIG="$PATH_SVC/mariadb/config.env"
-    if [ ! -e "$DB_CONFIG" ]; then
-        log_info "Creating MariaDB config file..."
-        cp "$PATH_SVC/mariadb/config-sample.env" "$DB_CONFIG"
-        sed -i -e "s/MYSQL_ROOT_PASSWORD=.*/MYSQL_ROOT_PASSWORD=$(get_random_string)/" "$DB_CONFIG"
-        sed -i -e "s/MYSQL_PASSWORD=.*/MYSQL_PASSWORD=$(get_random_string)/" "$DB_CONFIG"
-    fi
-}
-
-################################################################################
-
-init_nginx() {
-    # Generate default certificate.
-    CERT_PATH="$PATH_SVC/nginx/private"
-    CERT_FILE="$CERT_PATH/default.pem"
-    CERT_KEY="$CERT_PATH/default.key"
-    mkdir -p "$CERT_PATH"
-    if [ ! -e "$CERT_FILE" ] || [ ! -e "$CERT_KEY" ]; then
-        log_info "Generating a default certificate for NGINX..."
-        run_command openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
-            -subj   "/C=US/ST=Test/L=Test/O=Test/CN=test.com" \
-            -keyout "$CERT_KEY" \
-            -out    "$CERT_FILE"
-        # openssl x509 -text -noout -in "$CERT_FILE"
-        chmod 600 "$CERT_KEY"
-        chmod 600 "$CERT_FILE"
-    fi
-}
-
-################################################################################
-
 main() {
     echo "========================================"
-    echo ">>> Docker Server Init Script (V.1.3.0)"
+    echo ">>> Docker Server Init Script (V.1.3.1)"
     echo "========================================"
     echo
 
@@ -242,6 +242,8 @@ main() {
     fi
 
     check_docker
+    init_mariadb
+    init_nginx
 
     if [ $(confirm "Do you want to install WordPress?" "y") = "y" ]; then
         install_wordpress
@@ -252,10 +254,6 @@ main() {
         install_php_my_admin
         echo
     fi
-
-    init_mariadb
-    init_nginx
-
 
     log_info "Finished!"
 }
