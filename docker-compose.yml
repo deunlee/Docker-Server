@@ -2,7 +2,6 @@ version: "3.7"
 # https://docs.docker.com/compose/compose-file/compose-file-v3/
 # https://github.com/compose-spec/compose-spec/blob/master/spec.md
 
-
 services:
 
     mariadb: # https://hub.docker.com/_/mariadb
@@ -66,7 +65,7 @@ services:
         # command: "/bin/sh -c 'while :; do sleep 48h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
         # help:
             # 설정 파일 다시 로드 :
-                # docker-compose exec nginx nginx -s reload
+                # docker compose exec nginx nginx -s reload
             # Certbot 연동 :
                 # command 주석 해제 (48시간마다 설정 및 인증서를 다시 로드한다.)
                 # volumes에서 Certbot 관련 디렉터리를 마운트한다.
@@ -75,10 +74,10 @@ services:
     # certbot: # https://hub.docker.com/r/certbot/certbot
         # image: certbot/certbot
         # volumes:
-            # - ./service/certbot:/etc/letsencrypt
-            # - ./www/certbot:/var/www/certbot
+        #     - ./service/certbot:/etc/letsencrypt
+        #     - ./www/certbot:/var/www/certbot
         # env_file:
-            # - ./docker/common.env
+        #     - ./docker/common.env
         # entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 48h & wait $${!}; done;'"
         # help:
             # 초기 인증서 설정은 ./script/init_certbot.sh 스크립트 이용 (도메인 및 이메일 수정할 것)
@@ -88,17 +87,16 @@ services:
         # build: docker/nodejs
         # restart: always
         # volumes:
-            # - ./app:/app
+        #     - ./app:/app
         # environment:
-            # NODE_ENV: production
+        #     NODE_ENV: production
         # env_file:
-            # - ./docker/common.env
+        #     - ./docker/common.env
         # working_dir: /app
         # entrypoint: "npm run docker"
         # user: 2000
         # help:
             # 노드 환경 변수는 상황에 맞게 production 또는 development로 변경한다.
-
 
 
 
